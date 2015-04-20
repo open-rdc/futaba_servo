@@ -32,9 +32,6 @@ class FutabaDriver {
 			servo(fd, 1), loop_rate(10), step_cnt(0), is_up(true)
 	{
 		servo.torque_on();
-		laser_tilt.setOrigin( tf::Vector3(0.0,0.0,0.8) );
-		laser_offset.setOrigin( tf::Vector3(0.0,0.0,0.085) );
-		laser_offset.setRotation( tf::Quaternion(0.0, 0.0, 0.0, 0.0) );
 	}
 		void run() {
 			while (ros::ok()) {
@@ -50,7 +47,10 @@ class FutabaDriver {
 
 	private :
 		void PublishLaserTf() {
-			laser_tilt.setRotation( tf::Quaternion(-step_cnt*step_rad,0.0,0.0, 0.0) );
+			laser_tilt.setRotation( tf::Quaternion(-step_cnt*step_rad,0.0,0.0 ) );
+			laser_tilt.setOrigin( tf::Vector3(0.0,0.0,0.8) );
+			//laser_offset.setOrigin( tf::Vector3(0.0,0.0,0.085) );
+			//laser_offset.setRotation( tf::Quaternion(0.0, 0.0, 0.0 ) );
 			// 現在のサーボの角度を通知
 			laser_tilt_pub.sendTransform(
 					tf::StampedTransform(
@@ -60,14 +60,14 @@ class FutabaDriver {
 						"laser_link"
 					)
 			);
-			laser_offset_pub.sendTransform(
+			/*laser_offset_pub.sendTransform(
 					tf::StampedTransform(
 						laser_offset,
 						ros::Time::now(),
 						"laser_link",
 						"rear_laser"
 					)
-			);
+			);*/
 		}
 		// 現在のURGのスキャンデータを，laser_assemblerに対して発行するよう要求
 		void MoveToNextAngle() {

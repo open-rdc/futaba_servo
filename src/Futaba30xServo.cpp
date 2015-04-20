@@ -36,3 +36,13 @@ int Futaba30x::torque_on ( unsigned char flag )
 	}
   return write(fd, data, 9);
 }
+
+int Futaba30x::torque_off ( unsigned char flag )
+{
+	unsigned char data[9] = { 0xFA, 0xAF, id, flag, 0x24,
+			0x01, 0x01, 0x00, id };
+	for (int i = 3; i < 8; i++) {
+		data[8] = data[8]^data[i];
+	}
+  return write(fd, data, 9);
+}

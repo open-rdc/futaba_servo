@@ -18,6 +18,7 @@ public:
 	}
 	int move ( unsigned int deg, unsigned int time_10ms, unsigned char flag = 0x00 );
 	int torque_on ( unsigned char flag = 0x00 );
+	int torque_off ( unsigned char flag = 0x00 );
 	~Futaba30x ()
 	{
     close(fd);

@@ -13,23 +13,28 @@
 #include "Futaba30xServo.hpp"
 
 // todo rosparam
-const int step = 23;
+const int step = 40;
 const double step_rad = static_cast<double>(step)*0.1f*M_PI/180.0f;
 
 class FutabaDriver {
 	private :
 		tf::TransformBroadcaster laser_tilt_pub;
+		tf::Transform laser_tilt;
 		tf::TransformBroadcaster laser_offset_pub;
-		Futaba30x servo;
+		tf::Transform laser_offset;
 		ros::Rate loop_rate;
+		Futaba30x servo;
 		int  step_cnt;
 		bool is_up;
 
 	public :
 		FutabaDriver(ros::NodeHandle &node, int fd) :
-			servo(fd, 1), loop_rate(20), step_cnt(0), is_up(true)
+			servo(fd, 1), loop_rate(10), step_cnt(0), is_up(true)
 	{
 		servo.torque_on();
+		laser_tilt.setOrigin( tf::Vector3(0.0,0.0,0.8) );
+		laser_offset.setOrigin( tf::Vector3(0.0,0.0,0.085) );
+		laser_offset.setRotation( tf::Quaternion(0.0, 0.0, 0.0, 0.0) );
 	}
 		void run() {
 			while (ros::ok()) {
@@ -40,31 +45,37 @@ class FutabaDriver {
 				// ros::spinOnce();
 				loop_rate.sleep();
 			}
+			servo.torque_off();
 		}
 
 	private :
 		void PublishLaserTf() {
+			laser_tilt.setRotation( tf::Quaternion(-step_cnt*step_rad,0.0,0.0, 0.0) );
 			// 現在のサーボの角度を通知
 			laser_tilt_pub.sendTransform(
 					tf::StampedTransform(
-						tf::Transform(tf::Quaternion(-step_cnt*step_rad, 0, 0), tf::Vector3(0.0, 0.0, 0.675)),
-						ros::Time::now(),"body", "laser_link"
-						)
-					);
-			// サーボの回転中心と，URGのオフセット FIXME 毎回更新しなくてもいいデータ
+						laser_tilt, 
+						ros::Time::now(), 
+						"hokuyo_link",
+						"laser_link"
+					)
+			);
 			laser_offset_pub.sendTransform(
 					tf::StampedTransform(
-						tf::Transform(tf::Quaternion(0, 0, 0), tf::Vector3(0.0, 0.0, 0.09)), // TODO オフセットの実際の値
-						ros::Time::now(),"laser_link", "rear_laser"
-						)
-					);
+						laser_offset,
+						ros::Time::now(),
+						"laser_link",
+						"rear_laser"
+					)
+			);
 		}
 		// 現在のURGのスキャンデータを，laser_assemblerに対して発行するよう要求
 		void MoveToNextAngle() {
-			if (step_cnt>=20 && is_up) is_up = false;
-			else if (step_cnt<=0 && !is_up)  is_up = true;
+			if (step*step_cnt>=400 && is_up) is_up = false;
+			else if (step*step_cnt<=-400 && !is_up)  is_up = true;
 			else step_cnt += is_up ? 1 : -1;
-			servo.move(step*step_cnt, 5);
+			ROS_INFO_STREAM("step_is"<<step_cnt*step);
+			servo.move(step*step_cnt, 10);
 		}
 };
 

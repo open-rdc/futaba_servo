@@ -18,47 +18,22 @@ const double step_rad = static_cast<double>(step)*0.1f*M_PI/180.0f;
 
 class FutabaDriver {
 	private :
+		Futaba30x servo;
 		tf::TransformBroadcaster laser_tilt_pub;
 		tf::TransformBroadcaster laser_offset_pub;
-		Futaba30x servo;
 		ros::Rate loop_rate;
 		int  step_cnt;
 		bool is_up;
-		int servo_fd;
-		std::string port_name;
 
 	public :
-		FutabaDriver(ros::NodeHandle &node) :
-			servo(servo_fd, 1), loop_rate(20), step_cnt(0), is_up(true),
-			port_name("/dev/ttyUSB0")
-	{
-		ros::NodeHandle private_nh("~");
-		private_nh.getParam("port_name",port_name);
-		servo.torque_on();
-	}
-		bool init(){
-			/* シリアル通信設定 */
-			struct termios oldtio, newtio;
-			servo_fd = open(port_name.c_str(), O_RDWR | O_NOCTTY); /* デバイスをオープンする */
-			ioctl(servo_fd, TCGETS, &oldtio); /* 現在のシリアルポートの設定を待避させる */
-			newtio = oldtio; /* ポートの設定をコピー */
-			// 通信設定
-			newtio.c_cc[VMIN] = 1; // 最低一文字送受信
-			newtio.c_cc[VTIME] = 0;
-			// キャラクラビット8, 受信可能に，制御信号無視
-			newtio.c_cflag = CS8 | CREAD | CLOCAL;
-			// ブレーク信号無視， パリティ無視
-			newtio.c_iflag = IGNBRK | IGNPAR;
-			int ret = cfsetspeed(&newtio, B460800);
-			if (ret < 0) {
-				ROS_INFO("Error in cfsetspeed");
-				close(servo_fd);
-				return 1;
-			}
-			ioctl(servo_fd, TCSETS, &newtio);	
+		FutabaDriver(ros::NodeHandle &node, int fd) :
+			servo(fd,1),loop_rate(20), step_cnt(0), is_up(true)
+		{
+			
 		}
 
 		void run() {
+			servo.torque_on();
 			while (ros::ok()) {
 				// 現在のtfデータ発行
 				PublishLaserTf();
@@ -67,6 +42,7 @@ class FutabaDriver {
 				// ros::spinOnce();
 				loop_rate.sleep();
 			}
+			servo.torque_off();
 		}
 
 	private :
@@ -89,7 +65,7 @@ class FutabaDriver {
 		// 現在のURGのスキャンデータを，laser_assemblerに対して発行するよう要求
 		void MoveToNextAngle() {
 			if (step_cnt>=20 && is_up) is_up = false;
-			else if (step_cnt<=0 && !is_up)  is_up = true;
+			else if (step_cnt<=-20 && !is_up)  is_up = true;
 			else step_cnt += is_up ? 1 : -1;
 			servo.move(step*step_cnt, 5);
 		}
@@ -99,12 +75,34 @@ int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "servo_driver");
 	ros::NodeHandle node;
+	ros::NodeHandle private_nh("~");
 
-	
-	FutabaDriver futaba_driver(node);
-	if(futaba_driver.init()){
+	std::string port_name;
+	port_name = "/dev/ttyUSB0";
+	private_nh.getParam("port_name",port_name);
+
+	/* シリアル通信設定 */
+	struct termios oldtio, newtio;
+	int servo_fd = open(port_name.c_str(), O_RDWR | O_NOCTTY); /* デバイスをオープンする */
+	ioctl(servo_fd, TCGETS, &oldtio); /* 現在のシリアルポートの設定を待避させる */
+	newtio = oldtio; /* ポートの設定をコピー */
+	// 通信設定
+	newtio.c_cc[VMIN] = 1; // 最低一文字送受信
+	newtio.c_cc[VTIME] = 0;
+	// キャラクラビット8, 受信可能に，制御信号無視
+	newtio.c_cflag = CS8 | CREAD | CLOCAL;
+	// ブレーク信号無視， パリティ無視
+	newtio.c_iflag = IGNBRK | IGNPAR;
+	int ret = cfsetspeed(&newtio, B460800);
+	if (ret < 0) {
+		std::cout << "Error in cfsetspeed" << std::endl;
+		close(servo_fd);
 		return 0;
 	}
+	ioctl(servo_fd, TCSETS, &newtio);
+
+	FutabaDriver futaba_driver(node, servo_fd);
+	
 	futaba_driver.run();
 	return 0;
 }

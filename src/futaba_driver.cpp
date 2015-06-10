@@ -24,33 +24,57 @@ class FutabaDriver {
 		ros::Rate loop_rate;
 		int  step_cnt;
 		bool is_up;
+		bool is_round;
+		double min_deg;
+		double max_deg;
+		int round_time;
 
 	public :
 		FutabaDriver(ros::NodeHandle &node, int fd) :
-			servo(fd,1),loop_rate(20), step_cnt(0), is_up(true)
+			servo(fd,1),loop_rate(20), step_cnt(0), is_up(true),
+			is_round(true),min_deg(0),max_deg(0),round_time(100)
 		{
-			
+			ros::NodeHandle private_nh("~");
+			private_nh.param<bool>("is_round", is_round, is_round);
+			private_nh.param<double>("max_deg", max_deg, max_deg);
+			private_nh.param<double>("min_deg", min_deg, min_deg);
+			private_nh.param<int>("rount_time_10ms", round_time, round_time);
 		}
 
 		void run() {
+			int now_deg;
 			servo.torque_on();
+			if(is_round){
+				servo.move((int)max_deg * 10, 100);
+				now_deg = max_deg;
+				is_up = true;
+			}
 			while (ros::ok()) {
-				// 現在のtfデータ発行
-				PublishLaserTf();
-				// サーボ動かす
-				MoveToNextAngle();
-				// ros::spinOnce();
-				loop_rate.sleep();
+				if(is_round){
+					MoveRoundTrip();
+					if(is_up){
+						while( now_deg >= min_deg ){
+							now_deg -= ((max_deg + min_deg) / round_time * 10) * (loop_rate.expectedCycleTime().toSec() / 1000);
+						}
+					}
+					else{
+						while( now_deg <= max_deg ){
+							now_deg += ((max_deg + min_deg) / round_time * 10) * (loop_rate.expectedCycleTime().toSec() / 1000);
+						}
+					}
+					PublishLaserTf(now_deg * 2 * M_PI);
+					loop_rate.sleep();
+				}
 			}
 			servo.torque_off();
 		}
 
 	private :
-		void PublishLaserTf() {
+		void PublishLaserTf(double rad) {
 			// 現在のサーボの角度を通知
 			laser_tilt_pub.sendTransform(
 					tf::StampedTransform(
-						tf::Transform(tf::Quaternion(-step_cnt*step_rad, 0, 0), tf::Vector3(0.0, 0.0, 0.675)),
+						tf::Transform(tf::Quaternion(-rad, 0, 0), tf::Vector3(0.0, 0.0, 0.675)),
 						ros::Time::now(),"body", "laser_link"
 						)
 					);
@@ -62,7 +86,20 @@ class FutabaDriver {
 						)
 					);
 		}
-		// 現在のURGのスキャンデータを，laser_assemblerに対して発行するよう要求
+
+		void MoveRoundTrip(){
+			int iMax_deg = max_deg * 10;
+			int iMin_deg = min_deg * 10;
+			if(is_up){
+				servo.move(iMin_deg, round_time);
+				is_up = false;
+			}
+			else{
+				servo.move(iMax_deg, round_time);
+				is_up = true;
+			}
+		}
+
 		void MoveToNextAngle() {
 			if (step_cnt>=20 && is_up) is_up = false;
 			else if (step_cnt<=-20 && !is_up)  is_up = true;

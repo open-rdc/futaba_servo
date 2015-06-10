@@ -12,6 +12,7 @@
   </node>
   <!--サーボを周期的に動かしてtfしてるだけ-->
   <node type="futaba_driver" pkg="futaba_driver" name="futaba_driver">
+    <param name="port_name" value="/dev/ttyUSB0" />
   </node>
   <!--laser_assemblerのsrvを定期的に呼び出してPointCloudをPublishしてる-->
   <node type="periodic_snapshotter" pkg="laser_assembler" name="my_laser_assembler">

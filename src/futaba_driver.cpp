@@ -38,32 +38,36 @@ class FutabaDriver {
 			private_nh.param<bool>("is_round", is_round, is_round);
 			private_nh.param<double>("max_deg", max_deg, max_deg);
 			private_nh.param<double>("min_deg", min_deg, min_deg);
-			private_nh.param<int>("rount_time_10ms", round_time, round_time);
+			private_nh.param<int>("round_time_10ms", round_time, round_time);
 		}
 
 		void run() {
-			int now_deg;
+			double now_deg;
 			servo.torque_on();
 			if(is_round){
 				servo.move((int)max_deg * 10, 100);
 				now_deg = max_deg;
 				is_up = true;
+				ros::Duration(1.0).sleep();
 			}
+
 			while (ros::ok()) {
 				if(is_round){
 					MoveRoundTrip();
-					if(is_up){
+					if(!is_up){
 						while( now_deg >= min_deg ){
-							now_deg -= ((max_deg + min_deg) / round_time * 10) * (loop_rate.expectedCycleTime().toSec() / 1000);
+							now_deg = now_deg - ((max_deg - min_deg) / (round_time * 10)) * (loop_rate.expectedCycleTime().toSec() * 1000);
+							PublishLaserTf((now_deg / 10) / (2 * M_PI));
+							loop_rate.sleep();
 						}
 					}
 					else{
 						while( now_deg <= max_deg ){
-							now_deg += ((max_deg + min_deg) / round_time * 10) * (loop_rate.expectedCycleTime().toSec() / 1000);
+							now_deg = now_deg + ((max_deg - min_deg) / (round_time * 10)) * (loop_rate.expectedCycleTime().toSec() * 1000);
+							PublishLaserTf((now_deg / 10) / (2 * M_PI));
+							loop_rate.sleep();
 						}
 					}
-					PublishLaserTf(now_deg * 2 * M_PI);
-					loop_rate.sleep();
 				}
 			}
 			servo.torque_off();
@@ -74,8 +78,8 @@ class FutabaDriver {
 			// 現在のサーボの角度を通知
 			laser_tilt_pub.sendTransform(
 					tf::StampedTransform(
-						tf::Transform(tf::Quaternion(-rad, 0, 0), tf::Vector3(0.0, 0.0, 0.675)),
-						ros::Time::now(),"body", "laser_link"
+						tf::Transform(tf::Quaternion(rad, 0, 0), tf::Vector3(0.0, 0.0, 0.675)),
+						ros::Time::now(),"base_link", "laser_link"
 						)
 					);
 			// サーボの回転中心と，URGのオフセット FIXME 毎回更新しなくてもいいデータ

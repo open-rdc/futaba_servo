@@ -1,7 +1,7 @@
 <launch>
   <node type="hokuyo_node" pkg="hokuyo_node" name="hokuyo_node_move">
     <!--frame_idはURGが載ってるフレームに合わせる-->
-    <param name="frame_id" value="laser_link" />
+    <param name="frame_id" value="rear_laser" />
     <param name="port" value="/dev/ttyACM0" />
     <param name="calibrate_time" value="false" />
     <param name="skip" value="true" />
@@ -11,8 +11,12 @@
     <remap from="scan" to="move_scan" />
   </node>
   <!--サーボを周期的に動かしてtfしてるだけ-->
-  <node type="futaba_driver" pkg="futaba_driver" name="futaba_driver">
-    <param name="port_name" value="/dev/ttyUSB0" />
+  <node type="futaba_driver" pkg="futaba_driver" name="futaba_driver" output="screen">
+    <param name="port_name" value="/dev/ttyUSB1" />
+    <param name="is_round" value="true" />
+    <param name="max_deg" value="45.0" />
+    <param name="min_deg" value="-45.0" />
+    <param name="round_time_10s" value="100" />
   </node>
   <!--laser_assemblerのsrvを定期的に呼び出してPointCloudをPublishしてる-->
   <node type="periodic_snapshotter" pkg="laser_assembler" name="my_laser_assembler">
@@ -22,6 +26,6 @@
   <node type="laser_scan_assembler" pkg="laser_assembler" name="synchronize_assembler">
     <remap from="scan" to="move_scan" />
     <param name="max_scans" type="int" value="1000" />
-    <param name="fixed_frame" type="string" value="map" />
+    <param name="fixed_frame" type="string" value="base_link" />
   </node>
 </launch>

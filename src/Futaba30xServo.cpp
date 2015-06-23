@@ -47,17 +47,18 @@ int Futaba30x::torque_off ( unsigned char flag )
   return write(fd, data, 9);
 }
 
-int Futaba30x::get_angle()
+short Futaba30x::get_angle()
 {
 	unsigned char send_data[9] = { 0xFA, 0xAF, id, 0x09, 0x00, 0x00, 0x01, 0x09};
-	unsigned char recv_data[26];
+	char recv_data[26];
 	int nread;
+	int recv;
 	write(fd, send_data, 9);
 	nread = read(fd, recv_data, 26);
 	if (nread == -1)
 	{
 		return 0xFF;
 	}
-	return recv_data[7] + (recv_data[8]>>8);
+	return ((recv_data[7] & 0x00FF) | ((recv_data[8]<<8) & 0xFF00));
 }
 

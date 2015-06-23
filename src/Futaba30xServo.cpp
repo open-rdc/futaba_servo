@@ -58,6 +58,6 @@ int Futaba30x::get_angle()
 	{
 		return 0xFF;
 	}
-	return recv_data[7] + (recv_data>>8);
+	return recv_data[7] + (recv_data[8]>>8);
 }
 
